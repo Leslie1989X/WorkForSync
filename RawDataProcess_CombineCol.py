@@ -39,3 +39,9 @@ if __name__=='__main__':
 		Surface_read2 = Surface_read.loc[:,['Col','Row','DieX','DieY','Area', 'Width', 'Length', 'Zone', 'Type']]
 		df_Surface = df_Surface._append(Surface_read2)
 	print(df_Surface)
+	df_CombineCol = pd.DataFrame()
+	for index, row in df_Surface.iterrows():
+		a = [row["Col"],row["Row"],row["DieX"],row["DieY"]]
+		print(a)
+		for index, row in df_DieLevelReport.iterrows():
+			b = [row["Col"],row["Row"],row["X"],row["Y"]]
