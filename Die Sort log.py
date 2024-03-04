@@ -145,8 +145,8 @@ if __name__=='__main__':	#代码入口，主程序的开始。
 	need_get_frame_file.insert(0,file_stem)
 	print('请将以下内容的RAW Data放入同一个文件夹，并提供文件夹的路径：')
 	for i in need_get_frame_file: print(i)
-	list_re_pattern = [re.compile(r'[A-Za-z0-9-\. ]+'),re.compile(r'Die Level Report.csv$'),re.compile(r'Surface.csv$')]
-	RAW_path = input("请输入文件夹的路径：")
+	list_re_pattern = [re.compile(r'[\(|)A-Za-z0-9-\. ]+'),re.compile(r'Die Level Report.csv$'),re.compile(r'Surface.csv$')]
+	RAW_path = input("请输入文件夹的路径：").replace('"','')
 	if len(RAW_path) == 0:
 		RAW_path = r'D:\OmniVision\RW\AOI\问题分析\20240220\OV60A40 P3WK77.00\RAW'	#懒得每次测试的时候输入
 	else:
