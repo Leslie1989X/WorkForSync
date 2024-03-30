@@ -35,14 +35,18 @@ class monster(role):
         elif order == 2:
             print(f'{self.name}发起了一次暴怒攻击')
             return random.choice([100,350])
-yourname = input('please input your name: ')
+# yourname = input('please input your name: ')
+yourname = "Jack"
 you = warrior(yourname)
 enemy = monster('暴龙君')
 
 round = 0
+A = 0
+B = 0
 while True:
     round += 1
-    your_fight_order = int(input('Please input your fight order: 1.普通攻击    2.暴击\n'))
+    # your_fight_order = int(input('Please input your fight order: 1.普通攻击    2.暴击\n'))
+    your_fight_order = random.choice([1,2])
     fight = you.fight(your_fight_order)
     enemy_defense_order = random.choice([1,2])
     HP_loss = float(enemy.defense(enemy_defense_order))*fight
@@ -50,12 +54,18 @@ while True:
     if enemy.HP <= 0:
         print(f'{enemy.name}was dead, {you.name} win!')
         print(f'round_{round}')
-        break
+        print('')
+        A += 1
+        if A == 10:
+            print(f'{you.name}赢了{A}次')
+            print(f'{enemy.name}赢了{B}次')
+            break
     elif enemy.HP > 0:
         print(f'{enemy.name}受到{HP_loss}点伤害, 剩余{enemy.HP}点生命')
         print('')
 
-    you_defense_order = int(input('Please input your defense order: 1.格挡    2.闪避\n'))
+    # you_defense_order = int(input('Please input your defense order: 1.格挡    2.闪避\n'))
+    you_defense_order = random.choice([1,2])
     enemy_fight_order = random.choice([1,2])
     fight = enemy.fight(enemy_fight_order)
     HP_loss = float(you.defense(you_defense_order))*fight
@@ -63,7 +73,12 @@ while True:
     if you.HP <= 0:
         print(f'{you.name} was dead, {enemy.name} win!')
         print(f'round_{round}')
-        break
+        print('')
+        B += 1
+        if B == 10:
+            print(f'{enemy.name}赢了{B}次')
+            print(f'{you.name}赢了{A}次')
+            break
     elif you.HP > 0:
         print(f'{you.name}受到{HP_loss}点伤害, 剩余{you.HP}点生命')
         print('')
