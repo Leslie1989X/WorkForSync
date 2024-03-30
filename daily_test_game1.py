@@ -39,8 +39,9 @@ yourname = input('please input your name: ')
 you = warrior(yourname)
 enemy = monster('暴龙君')
 
-
+round = 0
 while True:
+    round += 1
     your_fight_order = int(input('Please input your fight order: 1.普通攻击    2.暴击\n'))
     fight = you.fight(your_fight_order)
     enemy_defense_order = random.choice([1,2])
@@ -48,6 +49,7 @@ while True:
     enemy.HP -= HP_loss
     if enemy.HP <= 0:
         print(f'{enemy.name}was dead, {you.name} win!')
+        print(f'round_{round}')
         break
     elif enemy.HP > 0:
         print(f'{enemy.name}受到{HP_loss}点伤害, 剩余{enemy.HP}点生命')
@@ -60,6 +62,7 @@ while True:
     you.HP -= HP_loss
     if you.HP <= 0:
         print(f'{you.name}was dead, {enemy.name} win!')
+        print(f'round_{round}')
         break
     elif you.HP > 0:
         print(f'{you.name}受到{HP_loss}点伤害, 剩余{you.HP}点生命')
