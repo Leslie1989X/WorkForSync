@@ -1,3 +1,4 @@
+# 此程序旨在学习class的方法，包括属性、方法、继承。
 import random
 
 class role:
