@@ -6,3 +6,6 @@ https://blog.csdn.net/weixin_43871079/article/details/134422501
 激活虚拟环境的命令: `source /path/activate`
 ### python office doc
 https://docs.python.org/zh-cn/3/library/functions.html
+
+### 清华源
+`-i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple`
