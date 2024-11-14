@@ -9,3 +9,4 @@ https://docs.python.org/zh-cn/3/library/functions.html
 
 ### 清华源
 `-i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple`
+
