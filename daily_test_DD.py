@@ -1,4 +1,5 @@
 #n = int(input('n = '))
+import math
 
 def s(n):
     if n == 1:
@@ -52,3 +53,37 @@ class Solution:
         for i in range(0,n):
             dp[i] = max(dp[i-1],dp[i-2]+nums[i])
         return dp[n-1]
+    def deleteAndEarn(self, nums: list[int]) -> int:
+        if len(nums) == 1:
+            return nums[0]
+        maxnum = max(nums) + 1
+        coins = [0] * maxnum
+        for num in nums:
+            coins[num] = coins[num] + num
+        dp = [0] * maxnum
+        dp[0] = coins[0]
+        dp[1] = max(coins[0], coins[1])
+
+        for i in range(2, maxnum):
+            dp[i] = max(dp[i - 2] + coins[i], dp[i - 1])
+        return dp[maxnum - 1]
+    def uniquePaths(self, m: int, n: int) -> int:
+        if n == 1 or m == 1:
+            return 1
+        if n == 2:
+            return m
+        elif m == 2:
+            return n
+        d = [1]*min(n,m)
+        p = [1]+[0]*(min(n,m)-1)
+        for i in range(1,max(n,m)):
+            for j in range(1,min(n,m)):
+                p[j] = d[j] + p[j-1]
+            d, p = p,d
+        if math.comb(n+m-2,n-1) == d[j]:
+            return d[j]
+        else:
+            print(d,p)
+    
+a = Solution()
+a.uniquePaths(3,4)
