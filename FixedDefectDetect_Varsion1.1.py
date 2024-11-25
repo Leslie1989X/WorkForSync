@@ -22,7 +22,7 @@ import gc
 
 
 
-""" 
+"""
 采用Cluster的DBSCAN算法对进行聚类。
 """
 def timer(func):
@@ -45,7 +45,7 @@ def convolved2d_with_stride(matrix,kernel,stride):
     shape= (out_m,out_n,km,kn)
     strides = (stride*n*matrix.itemsize,stride*matrix.itemsize,n*matrix.itemsize,matrix.itemsize)
     matrix_view = np.lib.stride_tricks.as_strided(matrix,shape=shape,strides=strides)   # https://blog.csdn.net/qq_23869697/article/details/105594571
-                                                                                        # https://zhuanlan.zhihu.com/p/64933417
+                                                                                        # https://zhuanlan.zhihu.com1/p/64933417
     result = np.einsum('ijkl,kl->ij',matrix_view,kernel)    # Einstein summation convention. Tensor(matrix_view): ijkl,Tensor(kernel): kl,Tensor(output):ij
     expanded_output = np.zeros_like(matrix)
     expanded_output2 = np.zeros_like(matrix)
@@ -90,107 +90,121 @@ def LastActiveRecipe(ini_path):
     ProductInfo_path = pathlib.Path(ini_path,'Recipes',value,'ProductInfo.ini')
     Navigator_path = pathlib.Path(ini_path,'Recipes',value,'Navigator.jpg')
     return ProductInfo_path,Navigator_path
-"""
-RePattern_ini = {
-             'Job':re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+'),
-             'Metadata2':re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+\\[A-Za-z0-9]+\\Metadata.ini'),
-             'MultiRecipe':re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+\\[A-Za-z0-9]+\\MultiRecipe.ini'),             
-             'ProductInfo':re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+\\[A-Za-z0-9]+\\Recipes\\[A-Za-z0-9]+\\ProductInfo.ini'),
-             'ZonesINI':re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+\\[A-Za-z0-9]+\\Recipes\\[A-Za-z0-9]+\\Zones\\.+\.ini'),
-             'Waferinfo':re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+\\[A-Za-z0-9]+\\Recipes\\[A-Za-z0-9]+\\Waferinfo.ini'),
-             'zones':re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+\\[A-Za-z0-9]+\\Recipes\\[A-Za-z0-9]+\\zones.ini'),
-             'AlignmentData': re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+\\[A-Za-z0-9]+\\Recipes\\[A-Za-z0-9]+\\AlignmentData.ini'),
-             'navigator':re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+\\[A-Za-z0-9]+\\Recipes\\[A-Za-z0-9]+\\navigator.jpg'),
-             'SortMonitor':re.compile(r'(.+:.*|\\\\[A-Za-z0-9]+\\c\$)\\Job\\(E-|P-)[ (|)A-Za-z0-9\.%-]+(sort.+|monitor.+)',flags= re.I),
-            }
-"""  
-    # ini文件的正则匹配
-    # Job 匹配job文件夹名
+
 def repeat_thread_detection(funcN):
     for item in threading.enumerate():
         if funcN==item.name:
             return True
     return False  
-def thread_it(func,name:str,*args):
+def thread_it1(func,name:str='test',*args,**kwargs):
     if not repeat_thread_detection(funcN=name):
         global t,event
         event = threading.Event()
-        t = threading.Thread(target=func,name=name,args=args)
-        t.setDaemon(True)                               # 守护线程，True: 主进程退出则退出。
+        t = threading.Thread(target=func,name=name,args=args,kwargs=kwargs)
+        t.daemon = True                               # 守护线程，True: 主进程退出则退出。
         t.start()
-    
-def xFunc0(event):
-    def childThread():
-        global root_path
+
+class XFunc:
+    _event = threading.Event()
+    __OSC_path =  r'\\172.34.12.5\rwfabdata'
+    __SX_path = r'\\10.162.2.50\sx_eng_data\rwfabdata'
+    __test_path_1 = r'D:\OmniVision\RW\AOI\AOI machine and recipe\AOI recipe'
+    __test_path_2 = r'E:\CodeProject\VSCodeProjects\My_Projects\work_data\AOI_Recipe'
+    __test_path = ''
+    __test_raw_path = r'E:\CodeProject\VSCodeProjects\My_Projects\work_data\test_csv'
+    def __init__(self) -> None:
+        self.root_path = ''
+    def _run_in_threading(self,method,*args, **kwargs):
+        def thread_func():
+            method(*args, **kwargs)
+        t = threading.Thread(target=thread_func)
+        t.daemon = True
+        t.start()
+    def xf0(self,event):
+        self._run_in_threading(self.xFunc0,event)
+    def xf1(self,event):
+        self._event.wait()
+        self._run_in_threading(self.xFunc1,event)
+    def xf2(self,event):
+        self._run_in_threading(self.xFunc2,event)
+    def xf3(self,event):
+        self._run_in_threading(self.xFunc3,event)
+    def xf4(self,event):
+        self._run_in_threading(self.xFunc4,event)
+    def xf5(self,event):
+        self._run_in_threading(self.xFunc5,event)
+        
+    def clear(self,n:int=-1):
+        Comboboxes = [com0,com1,com2,com3,com4,com5,com6]
+        for i in Comboboxes[n+1:]:
+            i.set('')
+            i['value'] = []
+        if n == -1:
+            self.__test_path = ''
+            self.root_path = ''
+            plt.close('all')
+            gc.collect()
+            text.delete('1.0','end')
+            self._event.clear()
+    def xFunc0(self,event):
+        print(f"Executing in thread: {threading.current_thread().name}")
         location = com0.get()
-        com.set('')
-        com2.set('')
-        com3.set('')
-        com4.set('')
-        com5.set('')
-        com2['value'] = []
-        com3['value'] = []
-        com4['value'] = []
-        com5['value'] = []
+        self.clear(n=0)
         if location == 'OSC':
-            com['value'] = ['RCAI'+str(i).rjust(2,'0') for i in range(1,13)]
-            root_path = r'\\172.34.12.5\rwfabdata'
+            com1['value'] = ['RCAI'+str(i).rjust(2,'0') for i in range(1,13)]
+            self.root_path = self.__OSC_path
         else:
-            com['value'] = ['RW-SCAI01-3','RW-SCAI02-15','RW-SCAI03-68','RW-SCAI04-64','RW-SCAI05-62','RW-SCAI06-58','RW-SCAI07-73','RW-SCAI08-72','RW-SCAI09-71']
-            root_path = r'\\10.162.2.50\sx_eng_data\rwfabdata'
-    t = threading.Thread(target=childThread,name='locationcollect')
-    t.setDaemon(True)                               # 守护线程，True: 主进程退出则退出。
-    t.start()        
-def xFunc(event):
-    def childThread():
-        machine = com.get()
-        com2.set('')
-        com3.set('')
-        com4.set('')
-        com5.set('')
-        com2['value'] = []
-        com3['value'] = []
-        com4['value'] = []
-        com5['value'] = []
+            com1['value'] = ['RW-SCAI01-3','RW-SCAI02-15','RW-SCAI03-68','RW-SCAI04-64','RW-SCAI05-62','RW-SCAI06-58','RW-SCAI07-73','RW-SCAI08-72','RW-SCAI09-71']
+            self.root_path = self.__SX_path
+        if pathlib.Path(self.root_path).exists():
+            print(f'{self.root_path} --> path correct')
+            self.__test_path = self.root_path
+        elif pathlib.Path(self.__test_path_1).exists():
+            print(f'{self.__test_path_1} --> path correct')
+            self.__test_path = self.__test_path_1
+        elif pathlib.Path(self.__test_path_2).exists():
+            print(f'{self.__test_path_2} --> path correct')
+            self.__test_path = self.__test_path_2
+        else:
+            print(f'path error.')
+        self._event.set()
+    def xFunc1(self,event):
+        print(f"Executing in thread: {threading.current_thread().name}")
+        machine = com1.get()
+        self.clear(n=1)
         pp = f'\\\\{machine}\\c$\\job'
-        p = f'\\\\{machine}\\c$\\Falcon\Scanresults'
+        p = f'\\\\{machine}\\c$\\Falcon\\Scanresults'
         p = pathlib.Path(p)
         pp = pathlib.Path(pp)
-        if p.exists():
-            p = get_folder(p)
-            p_l = [i.name for i in p]
-            com2['value'] = p_l
+        if self.__test_path == '':
+            if p.exists():
+                p = get_folder(p)
+                p_l = [i.name for i in p]
+                com2['value'] = p_l
         else:
-            p = pathlib.Path(r'D:\OmniVision\RW\AOI\AOI machine and recipe\AOI recipe',machine,'Scanresults')
-            p = get_folder(p)
-            p_l = [i.name for i in p]
-            com2['value'] = p_l
-    t = threading.Thread(target=childThread,name='machinecollect')
-    t.setDaemon(True)                               # 守护线程，True: 主进程退出则退出。
-    t.start()   
-def xFunc2(event):
-    def childThread():
-        machine = com.get()
+            p = pathlib.Path(self.__test_path,machine,'Scanresults')
+            if p.exists():
+                p = get_folder(p)
+                p_l = [i.name for i in p]
+                com2['value'] = p_l
+    def xFunc2(self,event):
+        self.clear(n=2)
+        machine = com1.get()
         chooseJob = com2.get()
-        com3.set("")
-        com4.set('')
-        com5.set('')
-        com3['value'] = []
-        com4['value'] = []
-        com5['value'] = []
         pp = f'\\\\{machine}\\c$\\job\\{chooseJob}'
         p = f'\\\\{machine}\\c$\\Falcon\\Scanresults\\{chooseJob}'
         pp = pathlib.Path(pp)
         p = pathlib.Path(p)
-        if p.exists():
-            p = get_folder(p)
-            com3['value'] = [i.name for i in p]
-            com3.current(0)
-            p = get_folder(p[0])
-            p_l = [i.name for i in p]
-            com4['value'] = p_l
+        if self.__test_path == '':
+            if p.exists():
+                p = get_folder(p)
+                com3['value'] = [i.name for i in p]
+                com3.current(0)
+                p = get_folder(p[0])
+                p_l = [i.name for i in p]
+                com4['value'] = p_l
         else:
-            p = pathlib.Path(r'D:\OmniVision\RW\AOI\AOI machine and recipe\AOI recipe',machine,'Scanresults',chooseJob)
+            p = pathlib.Path(self.__test_path,machine,'Scanresults',chooseJob)
             p = get_folder(p)
             if p == []:
                 pass
@@ -199,90 +213,82 @@ def xFunc2(event):
                 com3.current(0)
                 p = get_folder(p[0])
                 p_l = [i.name for i in p]
-                com4['value'] = p_l
-    t = threading.Thread(target=childThread,name='jobcollect')
-    t.setDaemon(True)                               # 守护线程，True: 主进程退出则退出。
-    t.start()
-def xFunc3(event):
-    def childThread():
-        machine = com.get()
+                com4['value'] = p_l        
+    def xFunc3(self,event):
+        self.clear(n=3)
+        machine = com1.get()
         chooseJob = com2.get()
         Setup = com3.get()
-        com4.set('')
-        com5.set('')
-        com4['value'] = []
-        com5['value'] = []
         pp = f'\\\\{machine}\\c$\\job\\{chooseJob}\\{Setup}'
         p = f'\\\\{machine}\\c$\\Falcon\\Scanresults\\{chooseJob}\\{Setup}'
         pp = pathlib.Path(pp)
         p = pathlib.Path(p)
-        if p.exists():
-            p = get_folder(p)
-            p_l = [i.name for i in p]
-            com4['value'] = p_l
+        if self.__test_path == '':
+            if p.exists():
+                p = get_folder(p)
+                p_l = [i.name for i in p]
+                com4['value'] = p_l
         else:
-            p = pathlib.Path(r'D:\OmniVision\RW\AOI\AOI machine and recipe\AOI recipe',machine,'Scanresults',chooseJob,Setup)
+            p = pathlib.Path(self.__test_path,machine,'Scanresults',chooseJob,Setup)
             p = get_folder(p)
             p_l = [i.name for i in p]
             com4['value'] = p_l
-    t = threading.Thread(target=childThread,name='setupcollect')
-    t.setDaemon(True)                               # 守护线程，True: 主进程退出则退出。
-    t.start()
-def xFunc4(event):
-    def childThread():
-        machine = com.get()
+    def xFunc4(self,event):
+        self.clear(n=4)
+        machine = com1.get()
         chooseJob = com2.get()
         Setup = com3.get()
         Lot = com4.get()
-        com5.set('')
-        com5['value'] = []
         pp = f'\\\\{machine}\\c$\\job\\{chooseJob}\\{Setup}\\{Lot}'
         p = f'\\\\{machine}\\c$\\Falcon\\Scanresults\\{chooseJob}\\{Setup}\\{Lot}'
         pp = pathlib.Path(pp)
         p = pathlib.Path(p)
-        if p.exists():
-            p = get_folder(p)
-            p_l = [i.name for i in p]
-            com5['value'] = p_l
+        if self.__test_path == '':
+            if p.exists():
+                p = get_folder(p)
+                p_l = [i.name for i in p]
+                com5['value'] = p_l
         else:
-            p = pathlib.Path(r'D:\OmniVision\RW\AOI\AOI machine and recipe\AOI recipe',machine,'Scanresults',chooseJob,Setup,Lot)
+            p = pathlib.Path(self.__test_path,machine,'Scanresults',chooseJob,Setup,Lot)
             p = get_folder(p)
             p_l = [i.name for i in p]
             com5['value'] = p_l
-    t = threading.Thread(target=childThread,name='lotcollect')
-    t.setDaemon(True)                               # 守护线程，True: 主进程退出则退出。
-    t.start()
-def xFunc5(event):
-    def childThread():
+    def xFunc5(self,event):
         global calCheck,dieLevelReportFolder
         location = com0.get()
         calCheck = False
         dieLevelReportFolder = False
-        machine = com.get()
+        machine = com1.get()
         job = com2.get()
         setup = com3.get()
         lot = com4.get()
         frameid = com5.get()
-        if location == 'OSC':
-            dieLevelReportPath1 = f'\\\\172.34.12.5\\rwfabdata\\Line Public\\PE\JXY\\Reports\\{machine}\\RAW'
-            dieLevelReportPath2 = f'\\\\172.34.12.5\\rwfabdata\\Line Public\\PE\JXY\\ReportsOffline\\{machine}\\RAW'
-        else:
-            dieLevelReportPath1 = f'\\\\{machine}\\c$\\Reports\\Raw'
-            dieLevelReportPath2 = r'c:\Reports\Raw'
         dieLevelReportFile = '_'.join([job,setup,lot,frameid,'Die Level Report.csv'])
-        if pathlib.Path(dieLevelReportPath1,dieLevelReportFile).exists():
-            dieLevelReportFolder = pathlib.Path(dieLevelReportPath1,dieLevelReportFile)
-            text.insert('end','读取的文件路径: '+str(dieLevelReportFolder))
-            text.insert('end','\n')
-        elif pathlib.Path(dieLevelReportPath2,dieLevelReportFile).exists():
-            dieLevelReportFolder = pathlib.Path(dieLevelReportPath2,dieLevelReportFile)
-            text.insert('end','读取的文件路径: '+str(dieLevelReportFolder))
-            text.insert('end','\n')
+        if self.__test_path == '':
+            if location == 'OSC':
+                dieLevelReportPath1 = f'\\\\172.34.12.5\\rwfabdata\\Line Public\\PE\\JXY\\Reports\\{machine}\\RAW'
+                dieLevelReportPath2 = f'\\\\172.34.12.5\\rwfabdata\\Line Public\\PE\\JXY\\ReportsOffline\\{machine}\\RAW'
+            else:
+                dieLevelReportPath1 = f'\\\\{machine}\\c$\\Reports\\Raw'
+                dieLevelReportPath2 = r'c:\Reports\Raw'
+            if pathlib.Path(dieLevelReportPath1,dieLevelReportFile).exists():
+                dieLevelReportFolder = pathlib.Path(dieLevelReportPath1,dieLevelReportFile)
+                text.insert('end','读取的文件路径: '+str(dieLevelReportFolder))
+                text.insert('end','\n')
+            elif pathlib.Path(dieLevelReportPath2,dieLevelReportFile).exists():
+                dieLevelReportFolder = pathlib.Path(dieLevelReportPath2,dieLevelReportFile)
+                text.insert('end','读取的文件路径: '+str(dieLevelReportFolder))
+                text.insert('end','\n')
+            else:
+                messagebox.showerror('Wrong','未找到Die Level Report.csv。')
+                calCheck = False
+                dieLevelReportFolder = False
+                return calCheck,dieLevelReportFolder
         else:
-            messagebox.showerror('Wrong','未找到Die Level Report.csv。')
-            calCheck = False
-            dieLevelReportFolder = False
-            return calCheck,dieLevelReportFolder
+            if pathlib.Path(self.__test_raw_path,dieLevelReportFile).exists():
+                dieLevelReportFolder = pathlib.Path(self.__test_raw_path,dieLevelReportFile)
+                text.insert('end','读取的文件路径: '+str(dieLevelReportFolder))
+                text.insert('end','\n')
         df =  pd.read_table(dieLevelReportFolder,header=None)
         index1 = []
         for index, row in df.iterrows():
@@ -297,15 +303,8 @@ def xFunc5(event):
         cache = df['Class'].unique().tolist()
         cache.extend(['All','WithoutUnreviewed','WithoutGood','AllDefects'])
         com6['value'] = cache
-        
-        
         calCheck = True
         return calCheck,dieLevelReportFolder
-    t = threading.Thread(target=childThread,name='findcsv')
-    t.setDaemon(True)                               # 守护线程，True: 主进程退出则退出。
-    t.start()
-
-    
 
 def calculate2():
     global calCheck,dieLevelReportFolder
@@ -316,7 +315,7 @@ def calculate2():
     elif chooseDefect == '':
         messagebox.showerror('Wrong','未选择Defects。')
     elif calCheck and type(dieLevelReportFolder) != bool:
-        machine = com.get()
+        machine = com1.get()
         job = com2.get()
         setup = com3.get()
         lot = com4.get()
@@ -450,6 +449,8 @@ def calculate():
         print('Start')
         global calCheck,dieLevelReportFolder,results
         results = []
+        navigator_r = False
+        XDieSize,YDieSize,scan2dpixel = None,None,None
         if frameid == '':
             messagebox.showerror('Wrong','未选择FrameID。') 
         elif chooseDefect == '':
@@ -508,7 +509,7 @@ def calculate():
             return results
     t = threading.Thread(target=childThread,name='calculation',kwargs={'chooseDefect':com6.get(),
                                                                        'frameid': com5.get(),
-                                                                       'machine': com.get(),
+                                                                       'machine': com1.get(),
                                                                        'job': com2.get(),
                                                                        'setup': com3.get(),
                                                                        'lot': com4.get(),
@@ -516,7 +517,7 @@ def calculate():
                                                                        'n':int(overlapQty.get()),
                                                                        'r': int(topValue.get())
                                                                        })
-    t.setDaemon(True)                               # 守护线程，True: 主进程退出则退出。
+    t.daemon = True                               # 守护线程，True: 主进程退出则退出。
     t.start()
     t.join()
     global results
@@ -554,7 +555,7 @@ def clustering(RawData,eps:float=30.0,min_samples:int=2,*args, **kwargs):
                 else:
                     continue
         return clusters,core_sample_mask
-
+@timer
 def draw(RawData:np.ndarray,clusters:np.ndarray,s=10,alpha=0.3,needRect=True,core_samples_mask:np.ndarray=None,*args, **kwargs):
     if type(RawData) == pd.DataFrame:
         X = RawData.loc[:,['X','Y']].values
@@ -610,14 +611,14 @@ def confirm_exit():
         
 def clear():
     com0.set('')
-    com.set('')
+    com1.set('')
     com2.set('')
     com3.set('')
     com4.set('')
     com5.set('')
     com6.set('')
     
-    com['value'] = []
+    com1['value'] = []
     com2['value'] = []
     com3['value'] = []
     com4['value'] = []
@@ -629,6 +630,7 @@ def clear():
 
 if __name__ == '__main__':
     root = tk.Tk()
+    xfunc = XFunc()
     root.title('Sort Press Defect Detect')
     screenWidth = root.winfo_screenwidth()  #获取显示区域宽度
     screenHeigh = root.winfo_screenheight() #获取显示区域高度
@@ -667,29 +669,30 @@ if __name__ == '__main__':
     com0['value'] = values
     com0['state'] = 'readonly'
     #com0.current(2)
-    com0.bind('<<ComboboxSelected>>',xFunc0) 
-    com = ttk.Combobox(fm_2,width=40)        # https://blog.csdn.net/ever_peng/article/details/102563786
-    com.pack(side='top',anchor='w',)
+    com0.bind('<<ComboboxSelected>>',lambda event: xfunc.xf0(event)) 
+    com1 = ttk.Combobox(fm_2,width=40)        # https://blog.csdn.net/ever_peng/article/details/102563786
+    com1.pack(side='top',anchor='w',)
     #values = ['RCAI'+str(i).rjust(2,'0') for i in range(1,13)]
-    com['state'] = 'readonly'
-    #com.current(2)
-    com.bind('<<ComboboxSelected>>',xFunc)                                                      # 给下拉菜单绑定事件,textvariable=tk.StringVar()
+    com1['state'] = 'readonly'
+    #com1.current(2)
+    com1.bind('<<ComboboxSelected>>',lambda event: xfunc.xf1(event)) 
+    # 给下拉菜单绑定事件,textvariable=tk.StringVar()
     com2 = ttk.Combobox(fm_2,width=40)
     com2.pack(side='top',anchor='w',ipadx=0)
     com2['state'] = 'readonly'
-    com2.bind('<<ComboboxSelected>>',xFunc2)
+    com2.bind('<<ComboboxSelected>>',lambda event: xfunc.xf2(event)) 
     com3 = ttk.Combobox(fm_2,width=40)
     com3.pack(side='top',anchor='w')
     com3['state'] = 'readonly'
-    com3.bind('<<ComboboxSelected>>',xFunc3)
+    com3.bind('<<ComboboxSelected>>',lambda event: xfunc.xf3(event)) 
     com4 = ttk.Combobox(fm_2,width=40)
     com4.pack(side='top',anchor='w')
     com4['state'] = 'readonly'
-    com4.bind('<<ComboboxSelected>>',xFunc4)
+    com4.bind('<<ComboboxSelected>>',lambda event: xfunc.xf4(event)) 
     com5 = ttk.Combobox(fm_2,width=40)
     com5.pack(side='top',anchor='w')
     com5['state'] = 'readonly'
-    com5.bind('<<ComboboxSelected>>',xFunc5)
+    com5.bind('<<ComboboxSelected>>',lambda event: xfunc.xf5(event)) 
     com6 = ttk.Combobox(fm_2,width=40,)
     com6.pack(side='top',anchor='w')
     com6['state'] = 'readonly'
