@@ -53,3 +53,5 @@ draw(o_y_x.reshape(1,-1))
 draw(o_y_y.reshape(1,-1))
 pass
 o_x_x[0]/(np.tan(np.radians(avg_angle+5*std_angle))*np.abs(o_x_y[0]))
+t = np.where(o_x_x > np.mean(o_x_x))[0]
+o_x_y[t]/np.abs(cal_box(o_x_y)[1])/np.cos(np.radians(avg_angle+0*std_angle))
