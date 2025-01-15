@@ -45,7 +45,6 @@ def split_sort(data,indices,sort_key:int,*args, **kwargs):
                     raise
         for i in sort_arrays:
             nums = np.ptp(i[:,key2])/cal_box(np.diff(i[:,key2]))[1]+1
-            print(np.around(nums))
             
     (np.atan(np.ptp(i[:,key1])/np.ptp(i[:,key2])))
     data_new = np.concatenate(sort_arrays)
@@ -102,5 +101,26 @@ if not isinstance(shift1,bool):
         pass
     max_length = max(len(item) for item in tems)
     tems = [item.ljust(max_length,'.') for item in tems]
+    #tems = [[row[i] for row in tems] for i in range(len(tems[0]))]
+    for i in tems: print(i[::-1])
+if not isinstance(shift2,bool):
+    tems = ['A']
+    x = 0
+    for index,i in enumerate(shift2):
+        if index in t2:
+            x+=1
+            a = int(len(tems[x-1])-1+i)
+            for index2 in range(x):
+                tem = tems[index2]
+                if a < 0:
+                    tems[index2] = '.'*abs(a)+tem
+            tems.append('.'*int(a)+'A' if a>=0 else 'A')
+            pass
+        else:
+            tems[x] +='.'*int(i-1)+'A'
+            pass
+        pass
+    max_length = max(len(item) for item in tems)
+    tems = [item.ljust(max_length,'.') for item in tems]
+    #tems = [[row[i] for row in tems] for i in range(len(tems[0]))]
     for i in tems: print(i)
-        
