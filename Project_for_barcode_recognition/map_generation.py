@@ -89,16 +89,18 @@ if not isinstance(shift1,bool):
     for index,i in enumerate(shift1):
         if index in t1:
             x+=1
+            a = int(len(tems[x-1])-1+i)
             for index2 in range(x):
                 tem = tems[index2]
-                a = len(tem)-1+i
-                tems[index2] = '.'*abs(int(a))+tem
-            tems.append('A')
+                if a < 0:
+                    tems[index2] = '.'*abs(a)+tem
+            tems.append('.'*int(a)+'A' if a>=0 else 'A')
             pass
         else:
             tems[x] +='.'*int(i-1)+'A'
             pass
         pass
-    for i in tems:
-        print(i,end='')
-        print(';')
+    max_length = max(len(item) for item in tems)
+    tems = [item.ljust(max_length,'.') for item in tems]
+    for i in tems: print(i)
+        
