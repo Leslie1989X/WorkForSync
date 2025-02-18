@@ -31,6 +31,9 @@ class WatChangeHandler(FileSystemEventHandler):
     def on_modified(self, event) -> None:
         if event.is_directory:
             logger_fileChange.info("directory modified|{0}".format(event.src_path))
+            if event.src_path == str(self.path):
+                self.observer.stop()
+                logger_fileChange.error('TargetFile modified...')
         elif not event.is_directory:
             logger_fileChange.info("file modified|{0}".format(event.src_path))
 
@@ -47,6 +50,9 @@ class WatChangeHandler(FileSystemEventHandler):
     def on_moved(self, event) -> None:
         if event.is_directory:
             logger_fileChange.info("directory moved|from {0} to {1}".format(event.src_path,event.dest_path))
+            if event.src_path == str(self.path):
+                self.observer.stop()
+                logger_fileChange.error('TargetFile moved...')
         else:
             logger_fileChange.info("file moved|from {0} to {1}".format(event.src_path,event.dest_path))
         pass
@@ -62,6 +68,8 @@ class WatChangeHandler(FileSystemEventHandler):
                 else:
                     logger_fileCreate.info(f'Start to detect barcode|{event.src_path}')
 
+
+
 class Controller:
     def __init__(self,loggers:list[logging.Logger]=None):
         self.observer = None
@@ -69,13 +77,15 @@ class Controller:
         self.run = False
         self.status = False
         self.thread_s = []
+        self.event = threading.Event()
         
     def start_watchdog(self,targetFolder,outputpath1,outputpath2,run:bool):
         if self.observer:
             self.observer.stop()
             self.observer.join()
+        self.logger_main.info(f'start manual|observer {self.observer}')
         self.run = run
-        thread_ = thread_it(self.monitor_folder,'monitor',targetFolder,outputpath1,outputpath2,timeout=45)
+        thread_ = thread_it(self.monitor_folder,'monitor',targetFolder,outputpath1,outputpath2,timeout=5)
         if thread_ is not None:
             self.thread_s.append(thread_)
             return True
@@ -83,17 +93,14 @@ class Controller:
             return False
         
     def stop_watchdog(self,run:bool):
-        """if self.observer:
+        if self.observer:
             self.observer.stop()
             self.observer.join()
-            self.observer = None"""
-        #app.operate_button(app.button_OK1,operate='end')
+        self.logger_main.info(f'end manual|observer {self.observer}')
         self.run = run
-        #app.status = False
-        #for i in self.thread_s:
-        #    i.join()
-            
-    def monitor_folder(self,targetFolder:pathlib.Path,*args,timeout:int=10): 
+        self.event.clear()
+    
+    def monitor_folder(self,targetFolder:pathlib.Path,*args,timeout:int=30): 
         output_label = args[0]
         output_map = args[1]
         while self.run:
@@ -105,19 +112,26 @@ class Controller:
                     self.observer = self.observer_create(targetFilepath,output_label,output_map)
                     self.status = app.status = True
                     app.operate_button(app.button_OK1,operate='start')
+                    self.logger_main.info(f'start|observer {self.observer}')
                     while self.observer.is_alive() and self.run:
                         newTargetFileName = str(time.localtime().tm_year)+'_'+str(time.localtime().tm_mon)+'_'+str(time.localtime().tm_hour)
-                        time.sleep(1)
                         if TargetFolderName == newTargetFileName:
+                            self.check_monitor_folder(targetFolder,TargetFolderName,0.5)
                             time.sleep(1)
                             continue
                         else:
                             self.observer.stop()
                     else:
                         self.observer.stop()
+                        self.logger_main.info(f'end|observer {self.observer}')
                         self.status = app.status = False
                         app.operate_button(app.button_OK1,operate='end')
+                else:
+                    self.status = app.status = False
+                    app.operate_button(app.button_OK1,operate='end')
             except TimeoutError as t:
+                self.status = app.status = False
+                app.operate_button(app.button_OK1,operate='end')
                 self.logger_main.error(str(t))
                 self.observer.stop() if self.observer else 0
             finally:
@@ -127,12 +141,15 @@ class Controller:
         
     def check_monitor_folder(self,targetFolder,TargetFolderName,timeout:int=120): 
         __start = time.time()
-        while not pathlib.Path(targetFolder,TargetFolderName).exists() and self.run:
-            time.sleep(2)
+        while not pathlib.Path(targetFolder,TargetFolderName).exists():
+            if not self.run:
+                return False
+            time.sleep(1)
             if time.time() - __start > timeout:
-                raise TimeoutError(f'timeout | Not found {str(pathlib.Path(targetFolder,TargetFolderName))}.')
+                raise TimeoutError(f'timeout|Not found {str(pathlib.Path(targetFolder,TargetFolderName))}.')
         else:
-            return True        
+            return True
+
     def observer_create(self,targetFilepath,output_label,output_map):
         observer = Observer()
         event_handler = WatChangeHandler(targetFilepath,observer,output_label,output_map)
@@ -262,10 +279,8 @@ def create_alogger(logger:logging.Logger=None,streamHandlerBox:None=None):
 
 def thread_it(func,name:str,*args,**kwargs):
     if not repeat_thread_detection(funcN=name):
-        global event
-        event = threading.Event()
         t = threading.Thread(target=func,name=name,args=args,kwargs=kwargs)
-        t.setDaemon(True)                               # 守护线程，True: 主进程退出则退出。
+        t.daemon = True
         t.start()
         return t
 def repeat_thread_detection(funcN):
@@ -303,6 +318,16 @@ def get_config():
     else:
         return data
 
+class Processor:
+    def __init__(self):
+        self.event_create_queue = queue.Queue()
+    def process_events(self):
+        
+        try:
+            event = self.event_create_queue.get(timeout=1)
+        except queue.Empty:
+            pass
+
 if __name__ == '__main__':
     try:
         if check_pid(__file__) != None:
@@ -315,13 +340,19 @@ if __name__ == '__main__':
             log_path = pathlib.Path(app.root_path,params['log_path'])
             loggers,handlers = create_logger(log_path)
             controller = Controller(loggers)
+            event_queue = Processor()
             [logger_main,logger_fileCreate,logger_fileChange,logger_result,logger_result_BW,logger_detect,logger_detect_BW] = loggers
             app.logger = loggers
             app.controller = controller
             app.set_my_menu()
             app.deiconify()
-            #app = MainApp(baseName='JXY',params=params,logger=loggers ,controller=controller)
             app.mainloop()
+            controller.run = False
+            controller.status = False
+            for index in range(len(logger_main.handlers)):
+                if type(logger_main.handlers[index]) == logging.StreamHandler:
+                    del logger_main.handlers[index]
+            logger_main.info("exit|program exit.")            
     finally:
         gc.collect()
         sys.exit(0)

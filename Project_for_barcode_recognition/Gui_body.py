@@ -69,9 +69,9 @@ class MainApp(tk.Tk):
         self.stringvar1 = tk.StringVar()
         self.stringvar2 = tk.StringVar()
         self.stringvar3 = tk.StringVar()
-        self.stringvar1.set(params['targetFolder'])
-        self.stringvar2.set(str(pathlib.Path(self.root_path,params['map_path'])))
-        self.stringvar3.set(str(pathlib.Path(self.root_path,params['label_path'])))
+        self.stringvar1.set(str(pathlib.Path(params['targetFolder'])))
+        self.stringvar2.set(str(pathlib.Path(self.root_path,params['label_path'])))
+        self.stringvar3.set(str(pathlib.Path(self.root_path,params['map_path'])))
         self.logger = logger
         self.start_callback = start_callback
         self.controller = controller
@@ -150,6 +150,8 @@ class MainApp(tk.Tk):
             for i in self.logger:
                 i.addHandler(sh)
             self.my_menu = MyMenu(self,self.logger[0])
+            self.config(menu=self.my_menu)
+            self.protocol("WM_DELETE_WINDOW",self.my_menu.confirm_exit)  # 重新绑定
     
     def set_gui_size(self):
         screenWidth = self.winfo_screenwidth()  #获取显示区域宽度
