@@ -18,7 +18,6 @@ __all__ = ['get_file',
            'Rotate2',
            'furprocess_img',
            'img_det',
-           'test_main',
            'check_img',
            'sharpen',
            'cv_filter2d',
@@ -142,8 +141,6 @@ def findSideling(cnts,row,col,r:int=950,width:int=60,area:int=10000):
         w,h = rect[1]
         if min(w,h) < width and cv2.contourArea(cnt) < area:
             continue
-            """elif (x-col//2)**2 + (y-row//2)**2 < r**2:
-            continue"""
         else:
             distance, theta = calculated_polar_coordinates((col//2,row//2),(x,y))
             #print('x: ',round(x,1),'y: ',round(y,1),'w: ',round(w,1),'h: ',round(h,1),'angle: ',round(angle,1))
@@ -159,9 +156,7 @@ def findSideling(cnts,row,col,r:int=950,width:int=60,area:int=10000):
                                 label_record[label] = cnt
                         else:
                             label_record[label] = cnt
-                        print('Label: ',label)
-                        #if label == 2:
-                        #    target_rect = rect
+                        #print('Label: ',label)
                         break
                 else:
                     continue
@@ -248,7 +243,12 @@ def img_det(path:pathlib.Path,*args,need_CV_BarcodeDetector:bool=True,label_ns:l
     if isinstance(need_CV_BarcodeDetector,bool) is False:
         print('The type of need_CV_BarcodeDetector must be bool.')
         need_CV_BarcodeDetector = False
-    img = cv2.imread(str(path))
+    if isinstance(path,(str,pathlib.Path)):
+        img = cv2.imread(str(path))
+        if type(img) != np.ndarray:
+            raise ValueError('img is incorrect.')
+    if isinstance(path,np.ndarray):
+        img = path
     label_cnts = preprocess_img(img)
     result = dict()
     for label_n in label_ns:
@@ -276,94 +276,6 @@ def img_det(path:pathlib.Path,*args,need_CV_BarcodeDetector:bool=True,label_ns:l
             continue
     else:
         return result
-def blob_det(img):
-    params = cv2.SimpleBlobDetector.Params()
-    params.filterByColor = True         # 过滤颜色
-    params.blobColor = 255
-    params.filterByArea = True          # 过滤面积
-    params.minArea = 100
-    params.maxArea = 1000000
-    params.filterByCircularity = False   # 过滤圆度
-    params.minCircularity = 0.8
-    params.filterByConvexity = False     # 过滤凸度
-    params.minConvexity = 0.8
-    params.filterByInertia = False       # 过滤惯性
-    params.minInertiaRatio = 0.8
-    detector = cv2.SimpleBlobDetector.create(params)
-    if len(img.shape) == 3:
-        img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    if len(img.shape) == 2:
-        blur = cv2.GaussianBlur(img,(5,5),0)
-        _,thresh = cv2.threshold(blur,50,255,cv2.THRESH_BINARY)
-    else:
-        raise ValueError('The shape of img is not correct.')
-    tem = find_circles(thresh)
-    if tem != [-1]:
-        mask = np.zeros_like(thresh,dtype=np.uint8)
-        cv2.circle(mask,(tem[0][0],tem[0][1]),tem[1]-10,255,-1)
-        mask = cv2.bitwise_not(mask)
-        thresh = cv2.bitwise_or(thresh,mask)
-        thresh = cv2.bitwise_not(thresh)
-    keypoints = detector.detect(thresh)
-    if len(keypoints) < 0:
-        for j in keypoints:
-            x,y = j.pt
-            d = j.size
-            x_min = max(0,int(x-d))
-            x_max = min(img.shape[1],int(x+d))
-            y_min = max(0,int(y-d))
-            y_max = min(img.shape[0],int(y+d))
-            img_blob = thresh[y_min:y_max,x_min:x_max]
-            cnts = cv2.findContours(img_blob,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[0]
-            rect = cv2.minAreaRect(cnts[0])
-    return keypoints,tem
-
-def dice_det(img:cv2.typing.MatLike):
-    if len(img.shape) == 3:
-        img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    if len(img.shape) == 2:
-        blur = cv2.GaussianBlur(img,(5,5),0)
-        _,thresh2 = cv2.threshold(blur,50,255,cv2.THRESH_BINARY_INV)
-        #_thresh = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY_INV,11,3)
-        #thresh1 = cv2.bitwise_and(thresh,_thresh)
-        #thresh2 = cv2.bitwise_or(thresh,thresh1)
-    else:
-        raise ValueError('The shape of img is not correct.')
-    cir = find_circles(thresh2)
-    if cir != [-1]:
-        mask = np.zeros_like(thresh2,dtype=np.uint8)
-        cv2.circle(mask,(cir[0][0],cir[0][1]),cir[1]-10,255,-1)
-        thresh2 = cv2.bitwise_and(thresh2,mask)
-        #_thresh1 = cv2.bitwise_or(thresh1,mask)
-    cnts,hierarchy = cv2.findContours(thresh2,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-    cnts_o,cnts_i,areas_o,rects_o,areas_i,rects_i  = [],[],[],[],[],[]
-    if len(cnts) == 0:
-        return cir,(areas_o,rects_o,areas_i,rects_i)
-    for index, j in enumerate(hierarchy[0]):
-        if j[2] != -1 or j[2] == j[3] == -1:
-            cnts_o.append(index)
-        else:
-            cnts_i.append(index)
-    areas_o = np.array([cv2.contourArea(cnts[contour]) for contour in cnts_o])
-    rects_o = [cv2.minAreaRect(cnts[contour]) for contour in cnts_o]
-    rects_o = np.array([[rect[0][0],rect[0][1],rect[1][0],rect[1][1],rect[2]] for rect in rects_o],dtype = np.float16)
-    _rects_o = rects_o[:,2] < rects_o[:,3]
-    rects_o[_rects_o,4] -= 90
-    rects_o = np.hstack([rects_o[:,0:2],
-               np.where(_rects_o,rects_o[:,3],rects_o[:,2]).reshape(-1,1),
-               np.where(_rects_o,rects_o[:,2],rects_o[:,3]).reshape(-1,1),
-               rects_o[:,4:]])
-    areas_i = np.array([cv2.contourArea(cnts[contour]) for contour in cnts_i])
-    std = np.std(rects_o[np.where(rects_o[:,4] != 0),4])
-    avg = np.mean(rects_o[np.where(rects_o[:,4] != 0),4])
-    if len(areas_i) == 0:
-        pass
-    else:
-        rects_i = [cv2.minAreaRect(cnts[contour]) for contour in cnts_i]
-        rects_i = np.array([[rect[0][0],rect[0][1],rect[1][0],rect[1][1],rect[2]] for rect in rects_i],dtype = np.float16)
-        _rects_i = rects_i[:,2] < rects_i[:,3]
-        rects_i[_rects_i,4] -= 90    
-    return cir,(areas_o,rects_o,areas_i,rects_i)
 
 def test_main(test_folder:str,*args,need_imwrite:bool=True,**kwargs):
     if type(test_folder) != str:
@@ -392,47 +304,8 @@ def test_main(test_folder:str,*args,need_imwrite:bool=True,**kwargs):
                         if j is not None:
                             cv2.imwrite(f'{output_LabelB_i}/{i.stem}_label_{index}_{index2}.jpg',j)
         else:
-            pass
-def test_main_hist(test_folder,*args, **kwargs):
-    tem = get_file(test_folder,pattern='*.jpg')
-    output = kwargs['output'] if 'output' in kwargs else None
-    hists = np.empty((256,0))
-    names = []
-    filename = time.strftime('%Y_%m_%d',time.localtime())
-    pathlib.Path(output,'Blobs',filename).mkdir(parents=True,exist_ok=True)
-    for i in tem:
-        img = check_img(i)
-        hist = calc_Hist(img,GrayHist=True)
-        hists = np.hstack((hists,hist))
-        names.append(i.stem)
-        cal1,cal2 = np.sum(hist[:16])/np.sum(hist),np.sum(hist[-16:])/np.sum(hist)
-        print(cal1,cal2)
-        if cal1 > 0.3 and cal2 > 0.09 or cal1 > 0.45:
-            print(i.stem,' is backlighting photo.')
-            cir,(areas,rects,areas_i,rects_i) = dice_det(cv2.cvtColor(img,cv2.COLOR_BGR2GRAY))
-            print('rects: ',len(rects))
-            tem_blob = cv2.circle(img.copy(),(cir[0][0],cir[0][1]),cir[1],(0,0,255),5) if cir != [-1] else img.copy()
-            for ii in rects: cv2.circle(tem_blob,(int(ii[0]),int(ii[1])),int(min(ii[3],ii[2])/2),(122,0,255),3)
-            for ii in rects_i: cv2.circle(tem_blob,(int(ii[0]),int(ii[1])),int(min(ii[3],ii[2])/2),(122,122,0),3)
-            cv2.imwrite(f'{output}/Blobs/{filename}/{i.stem}_dice.jpg',tem_blob)
-            """
-            keypoints,cir = blob_det(cv2.cvtColor(img,cv2.COLOR_BGR2GRAY))
-            print('keypoints: ',len(keypoints))
-            tem_blob = cv2.drawKeypoints(img.copy(),keypoints,None,(0,255,0),cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-            tem_blob = cv2.drawKeypoints(tem_blob,keypoints,None,(0,255,0),cv2.DRAW_MATCHES_FLAGS_DEFAULT)
-            tem_blob = cv2.circle(tem_blob,(cir[0][0],cir[0][1]),cir[1],(0,0,255),5)
-            cv2.imwrite(f'{output}/Blobs/{filename}/{i.stem}_blob.jpg',tem_blob)
-            """
-        else:
-            print(i.stem,' is frontlighting photo.')
-    if output is not None:
-        save_hist(hists,f'{output}/hists.txt')
-        with open(f'{output}/hists_columns.txt','w') as f:
-            f.write(str(','.join(map(str,names)))+'\n')
-    else:
-        save_hist(hists,'hists.txt')
-        with open(f'hists_columns.txt','w') as f:
-            f.write(str(','.join(map(str,names)))+'\n')
+            return labelBs
+
         
 if __name__ == '__main__':
     output_folder = r'D:\OmniVision\RW\VScodeProject\project_for_barcodeRecognition\Data\imwrite\findContours'
@@ -450,12 +323,4 @@ if __name__ == '__main__':
     start = time.time()
     if a == '1':
         test_main(test_folder,output_LabelB=output_LabelB)
-    elif a == '2':
-        start = time.time()
-        test_main_hist(test_folder,output=output_hists)
-    #test_main(test_folder,output_LabelB=output_LabelB)
-    #test_main_hist(test_folder,output=output_hists)
-    #with open(f'{output_LabelB}/{pathlib.Path(test_folder).stem}_data_record.csv','w') as f:
-    #    for i in data_record:
-    #        f.write(','.join(map(str,i))+'\n')
     print('Time: ',round(time.time()-start,4),'s')
