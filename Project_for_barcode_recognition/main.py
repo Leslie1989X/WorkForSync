@@ -1,3 +1,5 @@
+import multiprocessing.managers
+import multiprocessing.pool
 import numpy as np
 import pathlib
 import time
@@ -17,9 +19,10 @@ import json
 import queue
 import concurrent.futures
 import threading
+import multiprocessing
 
 class WatChangeHandler(FileSystemEventHandler):
-    def __init__(self,path:str,observer,output_label,output_map) -> None:
+    def __init__(self,path:str,observer,output_label:str=None,output_map:str=None) -> None:
         super().__init__()
         self.path = path
         self.observer = observer
@@ -27,7 +30,26 @@ class WatChangeHandler(FileSystemEventHandler):
         self.pattern = re.compile(r'-[^-]+-')
         self.output_label = output_label
         self.output_map = output_map
-    
+    def dispatch(self, event) -> None:
+        """Dispatches events to the appropriate methods.
+
+        :param event:
+            The event object representing the file system event.
+        :type event:
+            :class:`FileSystemEvent`
+        """
+        self.on_any_event(event)
+        thread_it(getattr(self, f"on_{event.event_type}"),'tem_thread',event)
+        #getattr(self, f"on_{event.event_type}")(event)
+    def on_any_event(self, event) -> None:
+        pass
+        
+    def on_opened(self, event) -> None:
+        pass
+    def on_closed_no_write(self, event) -> None:
+        pass
+    def on_closed(self, event) -> None:
+        pass
     def on_modified(self, event) -> None:
         if event.is_directory:
             logger_fileChange.info("directory modified|{0}".format(event.src_path))
@@ -66,7 +88,8 @@ class WatChangeHandler(FileSystemEventHandler):
                 if False:
                     pass
                 else:
-                    logger_fileCreate.info(f'Start to detect barcode|{event.src_path}')
+                    event_queue.event_queue.put(event.src_path)
+                    #logger_fileCreate.info(f'Start to detect barcode|{event.src_path}')
 
 
 
@@ -86,8 +109,10 @@ class Controller:
         self.logger_main.info(f'start manual|observer {self.observer}')
         self.run = run
         thread_ = thread_it(self.monitor_folder,'monitor',targetFolder,outputpath1,outputpath2,timeout=5)
-        if thread_ is not None:
+        thread_2 = thread_it(event_queue.process_events,'processor',timeout=1)
+        if thread_ is not None and thread_2 is not None:
             self.thread_s.append(thread_)
+            self.thread_s.append(thread_2)
             return True
         else:
             return False
@@ -105,7 +130,6 @@ class Controller:
         output_map = args[1]
         while self.run:
             TargetFolderName = str(time.localtime().tm_year)+'_'+str(time.localtime().tm_mon)+'_'+str(time.localtime().tm_hour)
-            print(TargetFolderName)
             try:
                 if self.check_monitor_folder(targetFolder,TargetFolderName,timeout):
                     targetFilepath = pathlib.Path(targetFolder,TargetFolderName)
@@ -137,6 +161,7 @@ class Controller:
             finally:
                 pass
         else:
+            self.observer.join() if self.observer else 0
             print('closed')
         
     def check_monitor_folder(self,targetFolder,TargetFolderName,timeout:int=120): 
@@ -320,13 +345,39 @@ def get_config():
 
 class Processor:
     def __init__(self):
-        self.event_create_queue = queue.Queue()
-    def process_events(self):
+        self.event_queue = queue.Queue()
+        self.multiprocessing_queue = multiprocessing.Queue()
+        self.pool = multiprocessing.Pool(processes=3)
+        self.multiprocessing_results = queue.Queue()
+
         
-        try:
-            event = self.event_create_queue.get(timeout=1)
-        except queue.Empty:
-            pass
+    def process_events(self,timeout:int=1):
+        while True:
+            try:
+                event_src_path = self.event_queue.get(timeout=timeout)
+                #print(event_src_path)
+                result = self.pool.apply_async(self.multiprocessing_main,args=(event_src_path,))
+                self.multiprocessing_results.put((event_src_path,result))
+                
+            except queue.Empty:
+                time.sleep(1)
+                continue
+            self.event_queue.task_done()
+            while not self.multiprocessing_results.empty():
+                path, res = self.multiprocessing_results.get()
+                if res.ready():
+                    try:
+                        final_result = res.get()
+                        print(f"Result for {path}: {final_result}")
+                    except Exception as e:
+                        print(f"Error getting result for {path}: {e}")
+                else:
+                    self.multiprocessing_results.put((path, res))
+            
+    def multiprocessing_main(self,path:str):
+        time.sleep(5.0)
+        #print(path)
+        return pathlib.Path(path).stem
 
 if __name__ == '__main__':
     try:
@@ -349,6 +400,9 @@ if __name__ == '__main__':
             app.mainloop()
             controller.run = False
             controller.status = False
+            if controller.observer:
+                controller.observer.stop()
+                controller.observer.join()
             for index in range(len(logger_main.handlers)):
                 if type(logger_main.handlers[index]) == logging.StreamHandler:
                     del logger_main.handlers[index]
