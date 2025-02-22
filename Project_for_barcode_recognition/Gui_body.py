@@ -175,8 +175,12 @@ class MainApp(tk.Tk):
         outputpath_map = self.stringvar3.get().replace('"','')
         self.run = True
         #self.start_callback(targetFolder,outputpath_label,outputpath_map,self.run)
-        self.controller.start_watchdog(targetFolder,outputpath_label,outputpath_map,self.run)
-        self.status = self.controller.status
+        result = self.controller.start_watchdog(targetFolder,outputpath_label,outputpath_map,self.run)
+        if result == 0:
+            self.run = False
+            messagebox.showerror('Wrong path',f'Please check: \n{outputpath_label}\n{outputpath_map}')
+        else:
+            self.status = self.controller.status
         #self.operate_button(self.button_OK1,operate='start')
         
     def action_end(self):
