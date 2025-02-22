@@ -3,12 +3,14 @@ import pathlib
 import time
 import numpy as np
 import math
-from map_generation import main_gen_map,split_sort,cal_box
-import concurrent.futures
+from map_generation import main_gen_map
 from Barcode_detection import get_file,img_det
+from Barcode_recognition import read,symbols
 import gc
+import re
+import shutil
 
-__all__ = ['find_circles','calc_Hist','save_hist','save_maps','img_process','dice_det','dice_det_main','cal_gray']
+__all__ = ['pre_img_process','DetectResult','move_img','find_circles','iswaferID','calc_Hist','save_hist','save_maps','img_process','dice_det','dice_det_main','cal_gray']
 
 def find_circles(img):
     """
@@ -31,6 +33,39 @@ def find_circles(img):
                 return (int(x),int(y)),int(r)
     else:
         return [-1]
+    
+def iswaferID(waferID: str):
+    lens = len(waferID)
+    if lens >12:
+        iswaferID = False
+    elif lens == 12 or lens == 11:
+        waferID = waferID[:-2].rjust(10,' ')+waferID[-2:]
+        waferIDList = list(waferID)
+        sum = 0
+        for i in range(10):
+            sum += (ord(waferIDList[i])-32)*(8**(11-i))
+        sum += (ord('A')-32)*(8**(1))
+        sum += (ord('0')-32)*(8**(0))
+        m = sum % 59
+        if m == 0:
+            if waferID[-2:] == 'A0':
+                iswaferID = True
+            else:
+                iswaferID = False
+        else:
+            sub = 59-m
+            strsub = bin(int(sub))[2:].rjust(6,'0')
+            pre = int(strsub[:3],2)
+            last = int(strsub[3:],2)
+            c1 = chr(ord('A')+pre)
+            c2 = chr(ord('0')+last)
+            if chr(ord('A')+pre)+chr(ord('0')+last) == waferID[-2:]:
+                iswaferID = True
+            else:
+                iswaferID = False
+    else:
+        iswaferID = False
+    return iswaferID
 
 def calc_Hist(img:np.ndarray,GrayHist:bool=True):
     if GrayHist or len(img.shape) == 2:
@@ -152,6 +187,123 @@ def dice_det(img:cv2.typing.MatLike):
         rects_i[_rects_i,4] -= 90"""    
     return cir,contours_info
 
+class DetectResult:
+    def __init__(self):
+        self.result_clasify:str = ''
+        self.label:dict = {}
+        self.circle: tuple = () # bool
+        self.cnts_info: np.ndarray
+        self.maps: np.ndarray # bool
+        self.time:float = 0.0
+
+def pre_img_process(path:str,label_ns:list[int] = [1,2,3,4],suffix:list=['bmp','BMP'],output_label:str='',output_maps:str='',outputpath_history:str='', **kwargs):
+    labelA = pathlib.Path(path).stem.strip()
+    save_history = kwargs['save_history'] if 'save_history' in kwargs.keys() else True
+    try:
+        lotID = re.search(re.compile(r'-[^-]+-'),labelA).group().replace('-','')
+    except Exception as LabelAError:
+        lotID = labelA
+    finally:
+        if iswaferID(pathlib.Path(path).stem) or iswaferID(pathlib.Path(path).stem.replace('_BW','')):
+            outputpath_wafer = pathlib.Path(pathlib.Path(path).parent,'wafer')
+            pathlib.Path(outputpath_wafer).mkdir(parents=True,exist_ok=True)
+            detect_time = time.time()
+            while round(time.time()-detect_time,2) < 3:
+                try:
+                    img = cv2.imread(path)
+                    assert isinstance(img,np.ndarray)
+                except AssertionError as a:
+                    time.sleep(0.5)
+                    continue
+                else:
+                    del img
+                    break
+            else:
+                raise TimeoutError(f'Fail to open file|{path}')
+            move_img(path,use_output=True,output=outputpath_wafer,suffix=suffix)
+            result = DetectResult()
+            result.result_clasify = '12Inch'
+            return result,'12 inch'
+        else:
+            detect_time = time.time()
+            while round(time.time()-detect_time,2) < 3:
+                try:
+                    img = cv2.imread(path)
+                    assert isinstance(img,np.ndarray)
+                except AssertionError as a:
+                    time.sleep(0.5)
+                    continue
+                else:
+                    break
+            else:
+                raise TimeoutError(f'Fail to open file|{path}')
+            result = dice_det_main(img,label_ns = label_ns)
+            pathlib.Path(outputpath_history,lotID).mkdir(parents=True,exist_ok=True) if save_history else 0
+            
+            if result.result_clasify == 'backlight':
+                pathlib.Path(output_maps,lotID).mkdir(parents=True,exist_ok=True)
+                if isinstance(result.circle,bool):
+                    pathlib.Path(output_maps,'fail').mkdir(parents=True,exist_ok=True)
+                    move_img(path,use_output=False,suffix=suffix,need_copy=True,copy_path=str(pathlib.Path(output_maps,'fail')))
+                    return result,"no found circle."
+                if isinstance(result.maps,bool):
+                    pathlib.Path(output_maps,'fail').mkdir(parents=True,exist_ok=True)
+                    move_img(path,use_output=False,suffix=suffix,need_copy=True,copy_path=str(pathlib.Path(output_maps,'fail')))
+                    if save_history:
+                        np.save(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'.npy'),result.cnts_info)
+                        with open(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'.ini'),'w',encoding = 'utf-8') as f:
+                            f.write(f'x = {result.circle[0][0]}\n')
+                            f.write(f'y = {result.circle[0][1]}\n')
+                            f.write(f'r = {result.circle[1]}\n')
+                    return result,"fail to generate map."
+                if isinstance(result.cnts_info,np.ndarray):
+                    save_maps(result.maps,str(pathlib.Path(output_maps,lotID,pathlib.Path(path).stem.replace('_BW','')+'.txt')))
+                    move_img(path,use_output=False,suffix=suffix)
+                    if save_history:
+                        np.save(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'.npy'),result.cnts_info)
+                        with open(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'.ini'),'w',encoding = 'utf-8') as f:
+                            f.write(f'x = {result.circle[0][0]}\n')
+                            f.write(f'y = {result.circle[0][1]}\n')
+                            f.write(f'r = {result.circle[1]}\n')
+                    return result,"success to generate map."        
+            if result.result_clasify == 'frontlight':
+                pathlib.Path(output_label,lotID).mkdir(parents=True,exist_ok=True)
+                pathlib.Path(output_label,'fail').mkdir(parents=True,exist_ok=True)
+                move_img(path,use_output=False,suffix=suffix,need_copy=True,copy_path=str(pathlib.Path(output_label,'fail')))
+                return result,"frontlight."   
+        
+def move_img(src_path,use_output:bool=False,output:str='',need_copy:bool=False,copy_path:str='',suffix:list=['bmp','BMP']):
+    if use_output:
+        outputpath_used = output
+    else:
+        outputpath_used = pathlib.Path(pathlib.Path(src_path).parent,'Used')
+    pathlib.Path(outputpath_used).mkdir(parents=True,exist_ok=True)
+    __new_name = pathlib.Path(src_path).stem+'_COPY_'+time.strftime("%Y%m%d%H%M%S", time.localtime())
+    if pathlib.Path(src_path).suffix in suffix or '_BW' in pathlib.Path(src_path).stem:
+        if need_copy:
+            if pathlib.Path(copy_path,pathlib.Path(src_path).name).exists():
+                cv2.imwrite(pathlib.Path(copy_path,__new_name+'.jpeg'),cv2.imread(src_path))
+            else:
+                cv2.imwrite(pathlib.Path(copy_path,pathlib.Path(src_path).name),cv2.imread(src_path))
+        if pathlib.Path(outputpath_used,pathlib.Path(src_path).stem+'.jpeg').exists():
+            new_name = __new_name+'.jpeg'
+        else:
+            new_name = pathlib.Path(src_path).stem+'.jpeg'
+        cv2.imwrite(pathlib.Path(outputpath_used,new_name),cv2.imread(src_path))
+        pathlib.Path(src_path).unlink()
+        return
+    
+    if need_copy:
+        if pathlib.Path(copy_path,pathlib.Path(src_path).name).exists():
+            shutil.copy(src_path,pathlib.Path(copy_path,__new_name+pathlib.Path(src_path).suffix))
+        else:
+            shutil.copy(src_path,pathlib.Path(copy_path,pathlib.Path(src_path).name))
+    if pathlib.Path(outputpath_used,pathlib.Path(src_path).name).exists():
+        shutil.move(src_path,pathlib.Path(outputpath_used,__new_name+pathlib.Path(src_path).suffix))
+    else:
+        shutil.move(src_path,outputpath_used)
+    return
+
 def dice_det_main(img_path,threshold1: float = 0.3,threshold2: float = 0.09,label_ns:list[int] = [1,2,3,4]):
     if isinstance(img_path,(str,pathlib.Path)):
         img = cv2.imread(img_path)
@@ -161,13 +313,19 @@ def dice_det_main(img_path,threshold1: float = 0.3,threshold2: float = 0.09,labe
         img = img_path
     hist = calc_Hist(img,GrayHist=True)
     cal1,cal2 = np.sum(hist[:16])/np.sum(hist),np.sum(hist[-16:])/np.sum(hist)
+    result = DetectResult()
     if cal1 > threshold1 and cal2 > threshold2 or cal1-threshold1-threshold2>0:
+        result.result_clasify = 'backlight'
         cir,contours_info = dice_det(img)
         del img
         gc.collect()
         if isinstance(cir,list):
-            return -1
-        elif isinstance(contours_info,np.ndarray):
+            result.circle = False
+            return result
+        else:
+            result.circle = cir
+        if isinstance(contours_info,np.ndarray):
+            result.cnts_info = contours_info
             try:
                 mapx,mapy = main_gen_map(contours_info)
             except AssertionError as a:
@@ -178,14 +336,26 @@ def dice_det_main(img_path,threshold1: float = 0.3,threshold2: float = 0.09,labe
                 mapx,mapy = 0,0
             finally:
                 if isinstance(mapx,np.ndarray) and np.all(mapx == mapy):
-                    return cir,contours_info,mapx
+                    result.maps = mapx
+                    return result
                 else:
-                    return cir,contours_info,0
+                    result.maps = False
+                    return result
         else:
-            return cir,contours_info,[]
+            result.cnts_info = contours_info
+            result.maps = False
+            return result # 不会触发，没有检测到cnts，会返回numpy.empty供map生成空。
     else:
+        result.result_clasify = 'frontlight'
+        return result
         labelAB = img_det(img,label_ns=label_ns)
-        return labelAB
+        result.label = labelAB
+        return result
+        for i in label_ns:
+            barcodes = labelAB[i]
+            for barcode in barcodes:
+                text = read(barcode,symbols=symbols)
+        
 
 def test_main_hist(test_folder,*args, pattern='*.jpg',**kwargs):
     tem = get_file(test_folder,pattern)
