@@ -27,6 +27,7 @@ labels = {
     3:[(1.3,1.7),(900,1700)],
     4:[(3.0,3.15,-3.15,-3.0),(900,1700)],
 }
+
 def get_file(path,pattern="*",needDir=False):
     if type(path) != pathlib.Path:
         path = pathlib.Path(path)
@@ -34,33 +35,34 @@ def get_file(path,pattern="*",needDir=False):
         return [path]
     _files = list(pathlib.Path(path).glob(pattern))
     return _files
+
 def calculated_polar_coordinates(src:tuple[int,int],dst:tuple[int,int]) -> tuple[int,float]:
     r = math.sqrt((dst[0]-src[0])**2 + (dst[1]-src[1])**2)
     theta = math.atan2(dst[1]-src[1],dst[0]-src[0])
     return int(r),round(theta,6)
+
 def find_circles(img):
-    row = img.shape[0]
-    col = img.shape[1]  
-    img_canny = cv2.Canny(img,70,100)
-    cnts = cv2.findContours(img_canny,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
+    """
+    return [-1]: no found circle.\n
+    return (int,int),int: (x,y),r.\n
+    """
+    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(7,7))
+    row, col = img.shape[:2]
+    img_closed = cv2.morphologyEx(img,cv2.MORPH_CLOSE,kernel)
+    img = cv2.dilate(img_closed,kernel,iterations=5)
+    cnts = cv2.findContours(img,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
     cnts = sorted(cnts,key=cv2.contourArea,reverse=True)
     for i in cnts:
+        if cv2.contourArea(i) < 900*900*3.14:
+            return [-1]
         (x,y),r = cv2.minEnclosingCircle(i)
-        if max(abs(x-col//2),abs(y-row//2)) < 300 and 900 < r < 1400:
+        if max(abs(x-col//2),abs(y-row//2)) < 300 and 900 < r < 1500:
             s = cv2.contourArea(i)
             if 1.05 > s/(math.pi*r**2) > 0.95:
                 return (int(x),int(y)),int(r)
     else:
         return [-1]
-        
-def find_circle(img):
-    row = img.shape[0]
-    col = img.shape[1]    
-    x180_h = cv2.HoughCircles(img,cv2.HOUGH_GRADIENT,1,minDist = 15,param1 = 220,param2 = 140,minRadius = 900,maxRadius= 1400)
-    for i in x180_h[0]:
-        x,y,r = int(i[0]),int(i[1]),int(i[2])
-        if max(abs(x-col//2),abs(y-row//2)) < 100 and 900 < r < 1400:
-            return x,y,r
+
 def calc_Hist(img,GrayHist:bool=True):
     #img = check_img(img)
     if GrayHist:
@@ -154,10 +156,8 @@ def findSideling(cnts,row,col,r:int=950,width:int=60,area:int=10000):
                 break
             else:
                 print('Not Label')
-                #data_record.append([col//2,row//2,x,y,w,h,angle,distance,theta,'Not Label'])
-            """if 15 < angle < 75 and x > col*0.6 and y > row*0.55:
-                target_rect = rect"""
     return label_record
+
 def Rotate2(img,rect:list,dAngle=0.0,dLength=0.0,hh = 0.0,ww = 0.0,reverse=False):
     """图片进一步旋转，裁剪。\n
     不外拓展，争取刚好框选白底。"""
