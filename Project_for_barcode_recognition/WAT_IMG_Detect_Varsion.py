@@ -5,6 +5,7 @@ import time
 import gc
 import sys
 from Frame_det_cont import pre_img_process
+from IMG_Process import main_img_process
 from Gui_body import MainApp,check_pid
 import logging
 import logging.handlers
@@ -243,12 +244,23 @@ class Processor:
                                 logger_result_BW.info(f'{info}|{pathlib.Path(path).name}|{result.time}s|{result.circle}')
                             if result.result_clasify == 'frontlight':
                                 logger_result.info(f'{info}|{pathlib.Path(path).name}|{result.time}s')
+                                for n in result.label.keys():
+                                    if isinstance(result.label[n],tuple):
+                                        logger_detect.info(f"{pathlib.Path(path).name}|label {n}|{result.label[n][0][0].data.decode('utf-8')}|{result.label[n][1]}|{result.label[n][0][0]}")
+                                        continue
+                                    if result.label[n] == 'Empty':
+                                        logger_detect.info(f"{pathlib.Path(path).name}|label {n}|Empty|[]|[]")
+                                        continue
+                                    if result.label[n] is None:
+                                        logger_detect.info(f"{pathlib.Path(path).name}|label {n}|Fail to read barcode|[]|[]")
+                                        continue
                         else:
-                            final_result
+                            pass
                     except Exception as e:
                         print(f"Error getting result for {path}: {e}")
                 else:
                     self.multiprocessing_results.put((path, res))
+                self.multiprocessing_results.task_done()
                 if self._stop_flag:
                     break
             else:
@@ -258,7 +270,7 @@ class Processor:
     @staticmethod 
     def multiprocessing_main(path:str,output_label:str,output_maps:str,outputpath_history:str):
         start = time.time()
-        results = pre_img_process(path,label_ns = [2],output_label=output_label,output_maps=output_maps,outputpath_history=outputpath_history)
+        results = main_img_process(path,label_ns = [2],output_label=output_label,output_maps=output_maps,outputpath_history=outputpath_history)
         if results is not None:
             result = results[0]
             result2 = results[1]
@@ -273,8 +285,13 @@ class Processor:
         while not self.event_queue.empty():
             self.event_queue.get()
             self.event_queue.task_done()
+        else:
+            self.event_queue.join()
         while not self.multiprocessing_results.empty():
             self.multiprocessing_results.get()
+            self.multiprocessing_results.task_done()
+        else:
+            self.multiprocessing_results.join()
         if self.pool:
             self.pool.terminate()
             self.pool.join()
