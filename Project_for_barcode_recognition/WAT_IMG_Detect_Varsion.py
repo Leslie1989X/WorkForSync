@@ -4,7 +4,6 @@ import pathlib
 import time
 import gc
 import sys
-from Frame_det_cont import pre_img_process
 from IMG_Process import main_img_process
 from Gui_body import MainApp,check_pid
 import logging
