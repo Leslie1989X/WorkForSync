@@ -68,6 +68,9 @@ class DetectResult:
         self.maps: np.ndarray # bool
         self.time:float = 0.0
         self.history:dict = {int:list[np.ndarray]}
+        self.result_info: str = ''
+        self.lotID:str = ''
+        self.outputpath:pathlib.Path=''
 
 def get_file(path,pattern="*",needDir=False):
     if type(path) != pathlib.Path:
@@ -325,14 +328,14 @@ def barcode_detection(path:pathlib.Path,*args,need_CV_BarcodeDetector:bool=False
     else:
         return result
   
-def move_img(src_path,use_output:bool=False,output:str='',need_copy:bool=False,copy_path:str='',suffix:list=['bmp','BMP']):
+def move_img(src_path,use_output:bool=False,output:str='',need_copy:bool=False,copy_path:str='',suffixes:list=['bmp','BMP']):
     if use_output:
         outputpath_used = output
     else:
         outputpath_used = pathlib.Path(pathlib.Path(src_path).parent,'Used')
     pathlib.Path(outputpath_used).mkdir(parents=True,exist_ok=True)
     __new_name = pathlib.Path(src_path).stem+'_COPY_'+time.strftime("%Y%m%d%H%M%S", time.localtime())
-    if pathlib.Path(src_path).suffix in suffix or '_BW' in pathlib.Path(src_path).stem:
+    if pathlib.Path(src_path).suffix in suffixes or '_BW' in pathlib.Path(src_path).stem:
         if need_copy:
             if pathlib.Path(copy_path,pathlib.Path(src_path).name).exists():
                 cv2.imwrite(pathlib.Path(copy_path,__new_name+'.jpeg'),cv2.imread(src_path))
@@ -404,14 +407,14 @@ def dice_detection(img:cv2.typing.MatLike):
         rects_i[_rects_i,4] -= 90"""    
     return cir,contours_info
 
-def img_analysis(img_,threshold1: float = 0.3,threshold2: float = 0.09,label_ns:list[int] = [1,2,3,4],img_path:str=''):
+def img_analysis(img_,threshold1: float = 0.3,threshold2: float = 0.09,label_ns:list[int] = [1,2,3,4],img_path:str='',result:DetectResult = None):
     if isinstance(img_,(str,pathlib.Path)):
         img = cv2.imread(img_)
         if type(img) != np.ndarray:
             raise ValueError('img is incorrect.')
     elif isinstance(img_,np.ndarray):
         img = img_
-    result = DetectResult()
+    result = DetectResult() if result is None else result
     hist = calc_Hist(img,GrayHist=True)
     #cal1,cal2 = np.sum(hist[:16])/np.sum(hist),np.sum(hist[-16:])/np.sum(hist)
     #if cal1 > threshold1 and cal2 > threshold2 or cal1-threshold1-threshold2>0 or '_BW' in pathlib.Path(img_path).stem:
@@ -489,76 +492,81 @@ def iswaferID(waferID: str):
     return iswaferID
 
 def main_img_process(path:str,label_ns:list[int] = [1,2,3,4],suffix:list=['bmp','BMP'],output_label:str='',output_maps:str='',outputpath_history:str='', **kwargs):
+    result = DetectResult()
     labelA = pathlib.Path(path).stem.strip()
     save_history = kwargs['save_history'] if 'save_history' in kwargs.keys() else True
     try:
         lotID = re.search(re.compile(r'-[^-]+-'),labelA).group().replace('-','')
-    except Exception as LabelAError:
+    except BaseException as LabelAError:
         lotID = labelA
     finally:
-        if iswaferID(pathlib.Path(path).stem) or iswaferID(pathlib.Path(path).stem.replace('_BW','')):
-            outputpath_wafer = pathlib.Path(pathlib.Path(path).parent,'wafer')
+        result.lotID = lotID
+        if iswaferID(labelA) or iswaferID(labelA.replace('_BW','')):
+            outputpath_wafer = pathlib.Path(pathlib.Path(path).parent,'Used','wafer')
             pathlib.Path(outputpath_wafer).mkdir(parents=True,exist_ok=True)
             detect_time = time.time()
             while round(time.time()-detect_time,2) < 5:
                 try:
+                    time.sleep(0.5)
                     img = cv2.imread(path)
                     assert isinstance(img,np.ndarray)
                 except AssertionError as a:
-                    time.sleep(0.5)
                     continue
                 else:
                     del img
                     break
             else:
                 raise TimeoutError(f'Fail to open file|{path}')
-            move_img(path,use_output=True,output=outputpath_wafer,suffix=suffix)
-            result = DetectResult()
+            move_img(path,use_output=True,output=outputpath_wafer,suffixes=suffix)
             result.result_clasify = '12Inch'
-            return result,'12 inch'
+            result.result_info = '12Inch'
+            return result
         else:
             detect_time = time.time()
-            while round(time.time()-detect_time,2) < 3:
+            while round(time.time()-detect_time,2) < 5:
                 try:
+                    time.sleep(0.5)
                     img = cv2.imread(path)
                     assert isinstance(img,np.ndarray)
                 except AssertionError as a:
-                    time.sleep(0.5)
                     continue
                 else:
                     break
             else:
                 raise TimeoutError(f'Fail to open file|{path}')
-            result = img_analysis(img,label_ns = label_ns,img_path=path)
-            
+            result = img_analysis(img,label_ns = label_ns,img_path=path,result=result)
             if result.result_clasify == 'backlight':
                 pathlib.Path(output_maps,lotID).mkdir(parents=True,exist_ok=True)
                 if isinstance(result.circle,bool):
                     pathlib.Path(output_maps,'fail',time.strftime("%Y%m%d", time.localtime())).mkdir(parents=True,exist_ok=True)
-                    move_img(path,use_output=False,suffix=suffix,need_copy=True,copy_path=str(pathlib.Path(output_maps,'fail',time.strftime("%Y%m%d", time.localtime()))))
-                    return result,"no found circle."
+                    move_img(path,use_output=False,suffixes=suffix,need_copy=True,copy_path=str(pathlib.Path(output_maps,'fail',time.strftime("%Y%m%d", time.localtime()))))
+                    result.result_info = "no found circle."
+                    return result
                 if isinstance(result.maps,bool):
                     pathlib.Path(output_maps,'fail',time.strftime("%Y%m%d", time.localtime())).mkdir(parents=True,exist_ok=True)
-                    move_img(path,use_output=False,suffix=suffix,need_copy=True,copy_path=str(pathlib.Path(output_maps,'fail',time.strftime("%Y%m%d", time.localtime()))))
+                    move_img(path,use_output=False,suffixes=suffix,need_copy=True,copy_path=str(pathlib.Path(output_maps,'fail',time.strftime("%Y%m%d", time.localtime()))))
                     if save_history:
                         pathlib.Path(outputpath_history,lotID).mkdir(parents=True,exist_ok=True)
-                        np.save(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'.npy'),result.cnts_info)
-                        with open(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'.ini'),'w',encoding = 'utf-8') as f:
+                        np.save(pathlib.Path(outputpath_history,lotID,labelA+'.npy'),result.cnts_info)
+                        with open(pathlib.Path(outputpath_history,lotID,labelA+'.ini'),'w',encoding = 'utf-8') as f:
                             f.write(f'x = {result.circle[0][0]}\n')
                             f.write(f'y = {result.circle[0][1]}\n')
                             f.write(f'r = {result.circle[1]}\n')
-                    return result,"fail to generate map."
+                    result.result_info = "fail to generate map."
+                    return result
                 if isinstance(result.cnts_info,np.ndarray):
-                    save_maps(result.maps,str(pathlib.Path(output_maps,lotID,pathlib.Path(path).stem.replace('_BW','')+'.txt')))
-                    move_img(path,use_output=False,suffix=suffix)
+                    save_maps(result.maps,str(pathlib.Path(output_maps,lotID,labelA.replace('_BW','')+'.txt')))
+                    move_img(path,use_output=False,suffixes=suffix)
                     if save_history:
                         pathlib.Path(outputpath_history,lotID).mkdir(parents=True,exist_ok=True)
-                        np.save(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'.npy'),result.cnts_info)
-                        with open(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'.ini'),'w',encoding = 'utf-8') as f:
+                        np.save(pathlib.Path(outputpath_history,lotID,labelA+'.npy'),result.cnts_info)
+                        with open(pathlib.Path(outputpath_history,lotID,labelA+'.ini'),'w',encoding = 'utf-8') as f:
                             f.write(f'x = {result.circle[0][0]}\n')
                             f.write(f'y = {result.circle[0][1]}\n')
                             f.write(f'r = {result.circle[1]}\n')
-                    return result,"success to generate map."
+                    result.result_info = "success to generate map."
+                    result.outputpath = pathlib.Path(output_maps,lotID,labelA.replace('_BW','')+'.txt')
+                    return result
             if result.result_clasify == 'frontlight':
                 pathlib.Path(output_label,lotID).mkdir(parents=True,exist_ok=True)
                 if len(label_ns) == 1:
@@ -566,20 +574,25 @@ def main_img_process(path:str,label_ns:list[int] = [1,2,3,4],suffix:list=['bmp',
                         if n not in result.label.keys():
                             continue
                         if result.label[n] == 'Empty':
-                            return result,"Empty."
+                            result.result_info = "Empty."
+                            move_img(path,use_output=True,output=pathlib.Path(pathlib.Path(path).parent,'Used','Empty'),suffixes=suffix)
+                            return result
                         if result.label[n] is not None:
                             with open(f'{pathlib.Path(output_label,lotID)}/{labelA}.txt','w',encoding='utf-8') as f:
                                 f.write(result.label[n][0][0].data.decode('utf-8'))
-                            move_img(path,use_output=False,suffix=suffix)
-                            return result,"Success to read Barcode."
+                            move_img(path,use_output=False,suffixes=suffix)
+                            result.result_info = "Success to read Barcode."
+                            result.outputpath = pathlib.Path(output_label,lotID,labelA+'.txt')
+                            return result
                         else:
                             with open(f'{pathlib.Path(output_label,lotID)}/{labelA}.txt','w',encoding='utf-8') as f:
                                 f.write('')
+                            result.outputpath = pathlib.Path(output_label,lotID,labelA+'.txt')
                             pathlib.Path(output_label,'fail',time.strftime("%Y%m%d", time.localtime())).mkdir(parents=True,exist_ok=True)
-                            move_img(path,use_output=False,suffix=suffix,need_copy=True,copy_path=str(pathlib.Path(output_label,'fail',time.strftime("%Y%m%d", time.localtime()))))
+                            move_img(path,use_output=False,suffixes=suffix,need_copy=True,copy_path=str(pathlib.Path(output_label,'fail',time.strftime("%Y%m%d", time.localtime()))))
                             if save_history:
                                 pathlib.Path(outputpath_history,lotID).mkdir(parents=True,exist_ok=True)
-                                result.history[n][0]
-                                cv2.imwrite(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'.bmp'),result.history[n][0])
-                                cv2.imwrite(pathlib.Path(outputpath_history,lotID,pathlib.Path(path).stem+'_small.bmp'),result.history[n][1])
-                            return result,"Fail to read Barcode."
+                                cv2.imwrite(pathlib.Path(outputpath_history,lotID,labelA+'.bmp'),result.history[n][0])
+                                cv2.imwrite(pathlib.Path(outputpath_history,lotID,labelA+'_small.bmp'),result.history[n][1])
+                            result.result_info = "Fail to read Barcode."
+                            return result
