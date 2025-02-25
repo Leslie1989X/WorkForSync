@@ -235,22 +235,21 @@ class Processor:
                 if res.ready():
                     try:
                         final_result = res.get()
-                        if isinstance(final_result,tuple):
-                            result,info = final_result
-                            if result.result_clasify == '12Inch':
+                        if type(final_result) != float:
+                            if final_result.result_clasify == '12Inch':
                                 pass
-                            if result.result_clasify == 'backlight':
-                                logger_result_BW.info(f'{info}|{pathlib.Path(path).name}|{result.time}s|{result.circle}')
-                            if result.result_clasify == 'frontlight':
-                                logger_result.info(f'{info}|{pathlib.Path(path).name}|{result.time}s')
-                                for n in result.label.keys():
-                                    if isinstance(result.label[n],tuple):
-                                        logger_detect.info(f"{pathlib.Path(path).name}|label {n}|{result.label[n][0][0].data.decode('utf-8')}|{result.label[n][1]}|{result.label[n][0][0]}")
+                            elif final_result.result_clasify == 'backlight':
+                                logger_result_BW.info(f'{final_result.result_info}|{pathlib.Path(path).name}|{final_result.time}s|{final_result.circle}')
+                            elif final_result.result_clasify == 'frontlight':
+                                logger_result.info(f'{final_result.result_info}|{pathlib.Path(path).name}|{final_result.time}s')
+                                for n in final_result.label.keys():
+                                    if isinstance(final_result.label[n],tuple):
+                                        logger_detect.info(f"{pathlib.Path(path).name}|label {n}|{final_result.label[n][0][0].data.decode('utf-8')}|{final_result.label[n][1]}|{final_result.label[n][0][0]}")
                                         continue
-                                    if result.label[n] == 'Empty':
+                                    if final_result.label[n] == 'Empty':
                                         logger_detect.info(f"{pathlib.Path(path).name}|label {n}|Empty|[]|[]")
                                         continue
-                                    if result.label[n] is None:
+                                    if final_result.label[n] is None:
                                         logger_detect.info(f"{pathlib.Path(path).name}|label {n}|Fail to read barcode|[]|[]")
                                         continue
                         else:
@@ -271,11 +270,8 @@ class Processor:
         start = time.time()
         results = main_img_process(path,label_ns = [2],output_label=output_label,output_maps=output_maps,outputpath_history=outputpath_history)
         if results is not None:
-            result = results[0]
-            result2 = results[1]
-            result.time = round(time.time()-start,3)
-            del results
-            return result,result2
+            results.time = round(time.time()-start,3)
+            return results
         else:
             return round(time.time()-start,3)
     
@@ -350,9 +346,9 @@ def create_logger(logpath:str,streamHandlerBox:None=None):
     logger_result.setLevel(logging.DEBUG)
     logger_result_BW = logging.getLogger('MapResult')
     logger_result_BW.setLevel(logging.DEBUG)
-    logger_detect = logging.getLogger('BarcodeRec')
+    logger_detect = logging.getLogger('BarcodeDetect')
     logger_detect.setLevel(logging.DEBUG)
-    logger_detect_BW = logging.getLogger('MapRec')
+    logger_detect_BW = logging.getLogger('MapDetect')
     logger_detect_BW.setLevel(logging.DEBUG)
     
     loggers = [logger_main,logger_fileCreate,logger_fileChange,logger_result,logger_result_BW,logger_detect,logger_detect_BW]
@@ -432,10 +428,10 @@ def repeat_thread_detection(funcN):
 
 def get_config():
     param = {'targetFolder':r'E:\WDCM_IMG',
-             'map_path':'WAT Validation/WAT Mapping',
-             'label_path':'WAT Validation/Frame Label B',
+             'map_path':'WaferMapping/WAT Validation/WAT Mapping',
+             'label_path':'WaferMapping/WAT Validation/Frame Label B',
              '_root_path':{"SX":r'\\10.162.2.50\sx_eng_data\rwfabdata',"OSC":r"\\172.34.12.5\rwfabdata"},
-             'log_path':'WAT Validation/Data',
+             'log_path':'WaferMapping/WAT Validation/Data',
              }
     try:
         with open('config.json','r') as f:
