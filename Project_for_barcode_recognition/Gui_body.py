@@ -178,7 +178,7 @@ class MainApp(tk.Tk):
         result = self.controller.start_watchdog(targetFolder,outputpath_label,outputpath_map,self.run)
         if result == 0:
             self.run = False
-            messagebox.showerror('Wrong path',f'Please check: \n{outputpath_label}\n{outputpath_map}')
+            messagebox.showerror('No permission to access',f'Please check path: \n{outputpath_label}\n{outputpath_map}')
         else:
             self.status = self.controller.status
         #self.operate_button(self.button_OK1,operate='start')
